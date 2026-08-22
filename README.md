@@ -296,6 +296,38 @@ So the setup can read any page you point it at, entirely locally. Actual search 
 send your queries to DeepSeek's servers, which is at odds with the rest of this stack.
 A local alternative would be a self-hosted SearXNG instance behind a custom provider.
 
+## Version control
+
+Pushed to **blauwstad/local-ai** (private).
+
+```bash
+./push.sh "what changed"     # manual
+```
+
+`.venv/` (594 MB), `logs/` and `results/` are gitignored -- **logs can contain prompt
+text and conversation content**, so they are never committed. `push.sh` refuses to
+push if a token-shaped string shows up in the staged diff.
+
+### Automatic pushing
+
+`auto-push.sh` runs as a LaunchAgent and pushes changes made outside any assistant
+session -- your own edits included.
+
+- Polls every 120s (`git status` on 36 files is cheaper than the interval; no fswatch
+  dependency needed).
+- **Debounced**: a change must survive two consecutive polls before it is committed,
+  so saving a file mid-edit does not commit a half-written script.
+- Skips while git is mid-operation (`index.lock`, `MERGE_HEAD`, interactive rebase).
+
+```bash
+touch .autopush-off     # pause it
+rm .autopush-off        # resume
+tail -f logs/auto-push.log
+launchctl unload ~/Library/LaunchAgents/com.vahdetd.local-ai-autopush.plist   # stop for good
+```
+
+Commits it makes are prefixed `auto:` so they are easy to tell from deliberate ones.
+
 ## Network exposure
 
 Everything binds **loopback only**. Nothing is reachable from your network.
