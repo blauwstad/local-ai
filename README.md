@@ -224,9 +224,15 @@ parts, returns **HTTP 200**, and silently discards the image. The model then ans
 ### vision.sh -- the 27B model with working eyes
 
 ```bash
-./vision.sh on      # mlx_vlm serves the SAME weights on :8081; images work
-./vision.sh off     # back to mlx-dspark (faster text, images ignored again)
+./vision.sh on                  # keeps whichever build ./model.sh last selected
+./vision.sh on stock            # or choose explicitly
+./vision.sh off                 # back to mlx-dspark (faster text, images ignored)
+./model.sh stock|uncensored     # switching works the same in BOTH modes
 ```
+
+`model.sh` is mode-aware: in vision mode it re-launches mlx_vlm with the chosen build
+rather than running `switch-model.sh`, which would start mlx-dspark on top of it and
+leave you with two servers.
 
 A swap, not a second service: the 27B VLM wants the same ~30 GB as the text engine.
 Verified end to end -- it read a test image as *"a red rectangle containing the blue

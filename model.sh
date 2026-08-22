@@ -55,6 +55,13 @@ print(d.get('x_mlx_dspark',{}).get('target') or d.get('id'))" 2>/dev/null)
 switch_to() {
   if [ -f logs/.vision ]; then
     ./vision.sh on "$1" >/dev/null 2>&1
+    # Let the transient launcher leave the process table. While it is still there,
+    # `ps` can match it instead of the real server and the label reads as garbage.
+    for _ in $(seq 1 10); do
+      [ "$(ps -Ao command | grep -cE "[m]lx_vlm\.server --model")" = "1" ] && break
+      sleep 1
+    done
+    sleep 1
   else
     ./switch-model.sh "$1" >/dev/null 2>&1
   fi

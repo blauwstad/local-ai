@@ -22,7 +22,7 @@ working**. Do not install, build, or download anything for it.
 | switch model | `./model.sh uncensored` / `./model.sh stock` |
 | OCR an image | `./ocr.sh image <file>` (layout+tables) / `./ocr.sh text <file>` (plain) |
 | OCR a PDF | `./ocr.sh pdf <file.pdf> [outdir]` |
-| let the model see images | `./vision.sh on` … `./vision.sh off` |
+| let the model see images | `./vision.sh on [uncensored\|stock]` … `./vision.sh off` |
 | reasoning on/off | `./thinking.sh on [low\|medium]` / `off` / `status` |
 | free ~34 GB | `make sleep` (keeps router+dsh) or `make stop` (everything) |
 | load it back | `make wake` |
