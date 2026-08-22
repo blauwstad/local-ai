@@ -1,0 +1,24 @@
+# Python venv — 594 MB, rebuild with: python3 -m venv .venv && pip install -r requirements.txt
+.venv/
+
+# Runtime state and logs. Logs can contain prompt text and conversation content,
+# so they are deliberately never committed.
+logs/
+results/
+*.pid
+*.log
+
+# Local backups made while editing scripts
+*.bak
+*.bak[0-9]
+*.bak-*
+*.rewritten
+
+# Test artifacts
+test.png
+ocr-out/
+*.pyc
+__pycache__/
+
+# macOS
+.DS_Store

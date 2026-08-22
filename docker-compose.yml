@@ -1,0 +1,64 @@
+# Local AI stack — Qwen3.8-27B (MLX, 8-bit affine) + DFlash 2 speculative decoding
+#
+# ARCHITECTURE NOTE (read before "why isn't the model in a container?"):
+# MLX computes on Apple's Metal API. Docker on macOS runs a Linux VM and cannot
+# pass through the Apple GPU — there is no device to forward. An MLX process
+# inside this VM would fall back to CPU and lose ~90% of its throughput.
+# So the INFERENCE ENGINE runs natively on the host (./engine.sh), and this
+# compose file containerizes everything around it: gateway, UI, benchmark.
+
+services:
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: mlx-gateway
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: mlx-webui
+    ports:
+      - "3000:8080"
+    environment:
+      - OPENAI_API_BASE_URL=http://gateway:8080/v1
+      - OPENAI_API_KEY=local
+      - WEBUI_AUTH=false
+      - ENABLE_OLLAMA_API=false
+      # Picking the other model makes the router swap the engine: 15s warm, ~85s cold
+      # (29.5 GB reload). The default client timeout fires long before that finishes
+      # and the UI shows a bare "500: Internal Error" instead of just waiting.
+      - AIOHTTP_CLIENT_TIMEOUT=900
+    volumes:
+      - webui-data:/app/backend/data
+    depends_on:
+      gateway:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # One-shot benchmark harness. Runs INSIDE Docker and measures the model
+  # through the containerized gateway, so the numbers reflect the real path.
+  bench:
+    build: ./bench
+    container_name: mlx-bench
+    environment:
+      - BASE_URL=http://gateway:8080/v1
+      - MODEL=qwen3.8-27b
+    volumes:
+      - ./results:/results
+    depends_on:
+      gateway:
+        condition: service_healthy
+    profiles: ["bench"]
+
+volumes:
+  webui-data:

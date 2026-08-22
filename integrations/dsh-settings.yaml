@@ -1,0 +1,35 @@
+# DeepSeek Harness -> LOCAL Qwen3.8-27B via the model router. No cloud, no API key.
+llm-pi-ai:
+  providers:
+    local-mlx:
+      api: openai-completions
+      baseURL: http://127.0.0.1:8090/v1
+        # -> ROUTER (:8090), not the engine (:8081) directly.
+        # mlx-dspark is single-model: it ignores the `model` field and answers with
+        # whatever is resident, so talking to it directly means the picker below
+        # would silently give you the wrong build. The router honours the choice by
+        # swapping the engine on demand (~15-85s reload, then normal speed).
+      apiKeyEnv: LOCAL_MLX_KEY
+      compat:
+        supportsDeveloperRole: false
+        maxTokensField: max_tokens
+      models:
+        # ONE neutral id on purpose. The router is pinned: it ignores this field and
+        # answers with whatever ./switch-model.sh loaded. Listing real build names here
+        # let the dsh picker both (a) claim a model it would not actually get and
+        # (b) persist a selection into this file that silently swapped the engine.
+        - id: local-qwen
+
+# Make the local model the default instead of deepseek-official/deepseek-v4-flash
+agent-default-model:
+  provider: local-mlx
+  # NOTE: the dsh web model picker PERSISTS your selection back into this file. If dsh
+  # starts answering as the aligned model again, check this line first -- and confirm
+  # with: grep -a "MODEL=" logs/rt.log  (or ./switch-model.sh status after a turn).
+  model: local-qwen
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+ui-theme:
+  preference: dark
+agent-presets:
+  default: cordis
