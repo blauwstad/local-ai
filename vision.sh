@@ -9,9 +9,12 @@
 # the same weights and does pass images through. Both want ~30 GB, so on a 64 GB
 # machine only one can be resident.
 #
-#   ./vision.sh on      images work; text still works, but no DFlash speculative decode
-#   ./vision.sh off     back to mlx-dspark (faster text, images silently ignored)
+#   ./vision.sh on [uncensored|stock]   images work; no DFlash speculative decode
+#   ./vision.sh off                     back to mlx-dspark (faster text, no images)
 #   ./vision.sh status
+#
+# With no argument `on` reuses whatever ./model.sh last selected (logs/last-model),
+# so vision mode never silently changes which weights you are talking to.
 set -uo pipefail
 cd "$(dirname "$0")"
 source .venv/bin/activate 2>/dev/null
@@ -43,11 +46,15 @@ case "${1:-status}" in
     touch "$MARK"
     trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
 
-    case "$(cat logs/last-model 2>/dev/null || echo uncensored)" in
-      stock) M="$MODEL_STOCK" ;;
-      *)     M="$MODEL_UNCENSORED" ;;
+    # explicit choice wins; otherwise inherit the current selection
+    choice="${2:-$(cat logs/last-model 2>/dev/null || echo uncensored)}"
+    case "$choice" in
+      stock|aligned|censored)   M="$MODEL_STOCK";      choice=stock ;;
+      uncensored|abliterated)   M="$MODEL_UNCENSORED"; choice=uncensored ;;
+      *) echo "!! unknown model '$choice' (use: uncensored | stock)"; rmdir "$LOCK" 2>/dev/null; exit 1 ;;
     esac
-    echo "vision mode ON  -> $M"
+    echo "$choice" > logs/last-model      # keep one source of truth for both modes
+    echo "vision mode ON  -> $choice: $M"
     stop_all
     python3 -c "
 import subprocess
@@ -74,8 +81,16 @@ print('  vlm pid', p.pid)
 
   status)
     if [ -f "$MARK" ]; then
-      pgrep -f "mlx_vlm.server" >/dev/null && echo "vision: ON (mlx_vlm on :$PORT — images work)" \
-        || echo "vision: marked ON but the server is not running"
+      if pgrep -f "mlx_vlm.server" >/dev/null; then
+        cur=$(ps -Ao command | grep -E "[m]lx_vlm\.server --model" | head -1 | sed -n 's/.*--model \([^ ]*\).*/\1/p')
+        case "$cur" in
+          *Huihui*) lbl="UNCENSORED" ;;
+          *)        lbl="STOCK" ;;
+        esac
+        echo "vision: ON (mlx_vlm on :$PORT) — $lbl: $cur"
+      else
+        echo "vision: marked ON but the server is not running"
+      fi
     else
       pgrep -f "mlx-dspark serve" >/dev/null && echo "vision: OFF (mlx-dspark — images silently ignored)" \
         || echo "vision: OFF, engine not running"
